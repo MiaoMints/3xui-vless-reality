@@ -9,19 +9,25 @@
 在 VPS 上执行：
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/MiaoMints/3xui-vless-reality/main/create-vless-reality.sh) "日本 Akilecloud 1000Mbps"
+bash <(curl -fsSL https://raw.githubusercontent.com/MiaoMints/3xui-vless-reality/main/install.sh) "日本 Akilecloud 1000Mbps"
+```
+
+GitHub raw 的 `main` 可能被 CDN 缓存。若仍拉到旧脚本，改用带 commit 的地址，或 jsDelivr：
+
+```bash
+bash <(curl -fsSL https://cdn.jsdelivr.net/gh/MiaoMints/3xui-vless-reality@main/install.sh) "日本 Akilecloud 1000Mbps"
 ```
 
 只预览、不写入面板：
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/MiaoMints/3xui-vless-reality/main/create-vless-reality.sh) "日本 Akilecloud 1000Mbps" --dry-run
+bash <(curl -fsSL https://raw.githubusercontent.com/MiaoMints/3xui-vless-reality/main/install.sh) "日本 Akilecloud 1000Mbps" --dry-run
 ```
 
 指定用户邮箱：
 
 ```bash
-bash <(curl -fsSL https://raw.githubusercontent.com/MiaoMints/3xui-vless-reality/main/create-vless-reality.sh) "日本 Akilecloud 1000Mbps" --email test
+bash <(curl -fsSL https://raw.githubusercontent.com/MiaoMints/3xui-vless-reality/main/install.sh) "日本 Akilecloud 1000Mbps" --email test
 ```
 
 最后一行 `vless://...` 拿去客户端导入即可。
