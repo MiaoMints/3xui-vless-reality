@@ -36,4 +36,4 @@ bash <(curl -fsSL https://raw.githubusercontent.com/MiaoMints/3xui-vless-reality
 
 - 需要已安装 3x-ui，并在 VPS 上以 root 运行
 - 协议固定为 VLESS + TCP + REALITY，`encryption=none`，默认不开 Vision（兼容性更好）
-- 自动读取 `/etc/x-ui/install-result.env` 或 `x-ui setting -getApiToken`
+- 自动读取 `/etc/x-ui/install-result.env`，或调用 `/usr/local/x-ui/x-ui setting -getApiToken`

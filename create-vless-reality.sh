@@ -39,8 +39,32 @@ done
 command -v python3 >/dev/null 2>&1 || { echo "python3 is required" >&2; exit 1; }
 command -v curl >/dev/null 2>&1 || { echo "curl is required" >&2; exit 1; }
 
-XRAY_BIN="/usr/local/x-ui/bin/xray-linux-amd64"
+XUI_BIN=""
+XRAY_BIN=""
 INSTALL_ENV="/etc/x-ui/install-result.env"
+
+find_bins() {
+  local cand
+  if [[ -x /usr/local/x-ui/x-ui ]]; then
+    XUI_BIN="/usr/local/x-ui/x-ui"
+  elif command -v x-ui >/dev/null 2>&1; then
+    XUI_BIN="$(command -v x-ui)"
+  fi
+  for cand in /usr/local/x-ui/bin/xray-linux-amd64 /usr/local/x-ui/bin/xray-linux-arm64; do
+    if [[ -x "$cand" ]]; then
+      XRAY_BIN="$cand"
+      break
+    fi
+  done
+}
+
+strip_quotes() {
+  local v="$1"
+  if [[ ${#v} -ge 2 && "$v" == \'*\' ]]; then
+    v="${v:1:${#v}-2}"
+  fi
+  printf '%s' "$v"
+}
 
 rand_hex() {
   openssl rand -hex $(( ($1 + 1) / 2 )) | cut -c1-"$1"
@@ -82,16 +106,23 @@ TOKEN=""
 BASE=""
 HOST=""
 load_panel() {
-  local port path access show
+  local port="" path="" access="" show="" scheme="http" line k v token_line
   TOKEN="${XUI_TOKEN:-}"
   BASE="${XUI_BASE:-}"
   HOST="${XUI_PUBLIC_HOST:-}"
 
   if [[ -f "$INSTALL_ENV" ]]; then
-    TOKEN="${TOKEN:-$(awk -F= '/^XUI_API_TOKEN=/{print substr($0,15)}' "$INSTALL_ENV")}"
-    port="$(awk -F= '/^XUI_PANEL_PORT=/{print $2}' "$INSTALL_ENV")"
-    path="$(awk -F= '/^XUI_WEB_BASE_PATH=/{print $2}' "$INSTALL_ENV")"
-    access="$(awk -F= '/^XUI_ACCESS_URL=/{print $2}' "$INSTALL_ENV")"
+    while IFS= read -r line || [[ -n "$line" ]]; do
+      [[ -z "$line" || "$line" == \#* ]] && continue
+      k="${line%%=*}"
+      v="$(strip_quotes "${line#*=}")"
+      case "$k" in
+        XUI_API_TOKEN) TOKEN="${TOKEN:-$v}" ;;
+        XUI_PANEL_PORT) port="$v" ;;
+        XUI_WEB_BASE_PATH) path="$v" ;;
+        XUI_ACCESS_URL) access="$v" ;;
+      esac
+    done < "$INSTALL_ENV"
     path="${path#/}"
     path="${path%/}"
     port="${port:-2053}"
@@ -104,18 +135,25 @@ load_panel() {
     fi
   fi
 
-  if [[ -z "$TOKEN" ]] && command -v x-ui >/dev/null 2>&1; then
-    TOKEN="$(x-ui setting -getApiToken 2>/dev/null | awk -F': ' '/apiToken/{print $2}')"
+  if [[ -n "$XUI_BIN" ]]; then
+    if [[ -z "$TOKEN" ]]; then
+      token_line="$("$XUI_BIN" setting -getApiToken 2>/dev/null | grep -Eo 'apiToken: .+' | awk '{print $2}' | tail -n1 || true)"
+      TOKEN="${token_line}"
+    fi
+    if [[ -z "$BASE" ]]; then
+      show="$("$XUI_BIN" setting -show 2>/dev/null || true)"
+      port="$(printf '%s\n' "$show" | awk -F': ' '/^port:/{print $2; exit}')"
+      path="$(printf '%s\n' "$show" | awk -F': ' '/^webBasePath:/{print $2; exit}')"
+      path="${path#/}"
+      path="${path%/}"
+      port="${port:-2053}"
+      if printf '%s\n' "$show" | grep -q 'Panel is secure with SSL'; then
+        scheme="https"
+      fi
+      BASE="${scheme}://127.0.0.1:${port}/${path}"
+    fi
   fi
-  if [[ -z "$BASE" ]] && command -v x-ui >/dev/null 2>&1; then
-    show="$(x-ui setting -show true 2>/dev/null || true)"
-    port="$(printf '%s\n' "$show" | awk -F': ' '/^port:/{print $2; exit}')"
-    path="$(printf '%s\n' "$show" | awk -F': ' '/webBasePath:/{print $2; exit}')"
-    path="${path#/}"
-    path="${path%/}"
-    port="${port:-2053}"
-    BASE="http://127.0.0.1:${port}/${path}"
-  fi
+
   if [[ -z "$HOST" ]]; then
     HOST="$(curl -fsS --max-time 5 https://api.ipify.org 2>/dev/null || true)"
   fi
@@ -125,7 +163,10 @@ load_panel() {
   HOST="${HOST:-127.0.0.1}"
   BASE="${BASE%/}"
   if [[ -z "$TOKEN" || -z "$BASE" ]]; then
-    echo "missing panel API. Run on the VPS or set XUI_BASE and XUI_TOKEN." >&2
+    echo "missing panel API token or listen URL." >&2
+    echo "need 3x-ui on this VPS. looked for /usr/local/x-ui/x-ui and ${INSTALL_ENV}." >&2
+    echo "x-ui binary: ${XUI_BIN:-not found}" >&2
+    echo "or set XUI_BASE and XUI_TOKEN, or create a token in Settings -> API Tokens." >&2
     exit 1
   fi
 }
@@ -249,6 +290,9 @@ print("vless://%s@%s:%s?%s#%s" % (
 ))
 PY
 }
+
+find_bins
+[[ -n "$XRAY_BIN" ]] || { echo "missing xray binary under /usr/local/x-ui/bin" >&2; exit 1; }
 
 gen_keys
 CLIENT_UUID="$(gen_uuid)"
