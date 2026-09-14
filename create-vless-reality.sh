@@ -231,7 +231,7 @@ PY
 }
 
 make_link() {
-  UID="$UID" HOST="$HOST" PORT="$PORT" PUB="$PUB" SNI="$SNI" SID="$SID" SPIDER="$SPIDER" NAME="$NAME" python3 - <<'PY'
+  CLIENT_UUID="$CLIENT_UUID" HOST="$HOST" PORT="$PORT" PUB="$PUB" SNI="$SNI" SID="$SID" SPIDER="$SPIDER" NAME="$NAME" python3 - <<'PY'
 from urllib.parse import quote, urlencode
 import os
 q = urlencode({
@@ -245,13 +245,13 @@ q = urlencode({
     "spx": os.environ["SPIDER"],
 })
 print("vless://%s@%s:%s?%s#%s" % (
-    os.environ["UID"], os.environ["HOST"], os.environ["PORT"], q, quote(os.environ["NAME"])
+    os.environ["CLIENT_UUID"], os.environ["HOST"], os.environ["PORT"], q, quote(os.environ["NAME"])
 ))
 PY
 }
 
 gen_keys
-UID="$(gen_uuid)"
+CLIENT_UUID="$(gen_uuid)"
 gen_short_ids
 SID="${SHORT_IDS[RANDOM % ${#SHORT_IDS[@]}]}"
 SNI="www.amazon.com"
@@ -262,11 +262,11 @@ if [[ "$DRY_RUN" -eq 1 ]]; then
   PORT="$((20000 + RANDOM % 39999))"
   HOST="${XUI_PUBLIC_HOST:-YOUR_IP}"
   INBOUND_JSON="$(build_payload)"
-  printf '%s' "$INBOUND_JSON" | UID="$UID" EMAIL="$EMAIL" python3 -c '
+  printf '%s' "$INBOUND_JSON" | CLIENT_UUID="$CLIENT_UUID" EMAIL="$EMAIL" python3 -c '
 import json, os, sys
 p = json.load(sys.stdin)
 p["settings"]["clients"] = [{
-    "id": os.environ["UID"],
+    "id": os.environ["CLIENT_UUID"],
     "email": os.environ["EMAIL"],
     "flow": "",
     "enable": True,
@@ -298,12 +298,12 @@ PY
 INBOUND_JSON="$(build_payload)"
 CREATED="$(api_json POST /panel/api/inbounds/add "$INBOUND_JSON")"
 IID="$(printf '%s' "$CREATED" | python3 -c 'import json,sys; d=json.load(sys.stdin); print(d.get("obj",{}).get("id") or ""); raise SystemExit(0 if d.get("success") else "create inbound failed: "+(d.get("msg") or ""))')"
-CLIENT_JSON="$(UID="$UID" EMAIL="$EMAIL" NAME="$NAME" IID="$IID" python3 - <<'PY'
+CLIENT_JSON="$(CLIENT_UUID="$CLIENT_UUID" EMAIL="$EMAIL" NAME="$NAME" IID="$IID" python3 - <<'PY'
 import json, os
 print(json.dumps({
     "client": {
         "email": os.environ["EMAIL"],
-        "id": os.environ["UID"],
+        "id": os.environ["CLIENT_UUID"],
         "flow": "",
         "tgId": 0,
         "limitIp": 0,
@@ -322,7 +322,7 @@ printf '%s' "$ADDED" | python3 -c 'import json,sys; d=json.load(sys.stdin); rais
 echo "inbound_id=$IID"
 echo "port=$PORT"
 echo "email=$EMAIL"
-echo "uuid=$UID"
+echo "uuid=$CLIENT_UUID"
 echo "public_key=$PUB"
 echo "short_id=$SID"
 echo "sni=$SNI"
